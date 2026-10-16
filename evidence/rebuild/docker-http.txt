@@ -1,0 +1,31 @@
+{
+  "synthetic": true,
+  "http_status": 200,
+  "invalid_input_status": 422,
+  "latency_ms": [
+    2.4735829792916775,
+    2.349250018596649,
+    2.045291941612959
+  ],
+  "result": {
+    "healthy": false,
+    "findings": [
+      {
+        "severity": "warning",
+        "code": "MEAN_DRIFT",
+        "detail": "x changed relative to training baseline"
+      }
+    ],
+    "numeric_drift": [
+      {
+        "feature": "x",
+        "train_mean": 2,
+        "validation_mean": 8,
+        "train_std": 1.0,
+        "standardized_mean_shift": 6.0,
+        "constant_reference_changed": false
+      }
+    ],
+    "limitations": "ID overlap and target inclusion detect only explicit leakage. Mean drift does not detect all distribution shifts or establish statistical significance."
+  }
+}
