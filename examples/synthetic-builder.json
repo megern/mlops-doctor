@@ -1,0 +1,15 @@
+{
+  "train_csv": "id,x,y\na,1,0\nb,3,1",
+  "validation_csv": "id,x,y\na,8,1\nc,10,0",
+  "schema": {
+    "id": "string",
+    "x": "number",
+    "y": "number"
+  },
+  "id_column": "id",
+  "target": "y",
+  "features": [
+    "x"
+  ],
+  "drift_threshold": 1
+}

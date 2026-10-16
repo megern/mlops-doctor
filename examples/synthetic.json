@@ -1,0 +1,31 @@
+{
+  "train": [
+    {
+      "id": "a",
+      "x": 1,
+      "y": 0
+    },
+    {
+      "id": "b",
+      "x": 3,
+      "y": 1
+    }
+  ],
+  "validation": [
+    {
+      "id": "c",
+      "x": 8,
+      "y": 1
+    }
+  ],
+  "schema": {
+    "id": "string",
+    "x": "number",
+    "y": "number"
+  },
+  "id_column": "id",
+  "target": "y",
+  "features": [
+    "x"
+  ]
+}
