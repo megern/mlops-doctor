@@ -25,7 +25,7 @@ Numeric mean drift is absolute validation/train mean difference divided by the t
 
 The synthetic example has one overlapping ID and a large mean shift; it should raise SPLIT_LEAKAGE and MEAN_DRIFT. A quiet report does not prove an ML pipeline is healthy.
 
-For schema errors, compare column names, missing cells and the chosen types. CSV order does not affect matching, but extra/missing names do. Missing or nonscalar IDs prevent meaningful leakage detection and produce a validation error. Very small training variability may overflow the standardized ratio; rescale the inputs if instructed. Categorical distribution drift, fairness metrics, model metrics and trained-model inspection are not implemented.
+For schema errors, compare column names, missing cells and the chosen types. CSV order does not affect matching, but extra/missing names do. Missing or nonscalar IDs prevent meaningful leakage detection and produce a validation error. Very small training variability may overflow the standardized ratio; rescale the inputs if instructed. Optional numeric and categorical distribution checks are available when enabled; fairness metrics, model metrics and trained-model inspection are not implemented.
 
 ## Resource and privacy limits
 
@@ -42,3 +42,13 @@ All bundled examples are synthetic and are labeled. Editing or importing your ow
 ## Local operation
 
 Run docker compose up --build and open http://127.0.0.1:8000. Alternatively install requirements-dev.lock with hashes in a Python 3.12 environment and run uvicorn app.main:app --host 127.0.0.1 --port 8000. Change the host port to run multiple tools. No GPU is needed.
+
+## Optional distribution checks in 0.3
+
+Enable the explicit distribution-check checkbox to compare every selected feature's empirical distributions. It is off by default so existing API callers retain prior diagnostic behavior. Set a descriptive distance threshold from 0 to 1; the default is 0.25. A warning is raised only when distance is strictly greater than the threshold. Thus identical distributions are not flagged at zero, and a threshold of one suppresses distance flags.
+
+Numeric features use the maximum difference between empirical cumulative distribution functions (a two-sample KS distance), with ties counted together. For train [-1, 1] and validation [-2, 2], both means are zero but the distance is 0.5, revealing a shape change that a mean-only check misses. There are no p-values, significance levels, hypothesis-test conclusions or sample-size calibration.
+
+String and boolean features use total variation: half the sum of absolute differences in category proportions. Train [A,A,B,B] and validation [A,A,A,B] have distance 0.25. Categories use exact values and no smoothing. These descriptive metrics depend on sample representativeness and cannot prove model degradation, fairness issues, causal changes or distribution equivalence.
+
+A feature with missing or invalid cells is skipped for its distribution calculation and explicitly labeled “skipped_invalid_values”; existing schema diagnostics still identify errors. No imputation or silent record removal is performed. API fields are distribution_checks (default false) and distribution_threshold (0–1), supported by both /analyze and /csv/analyze. Result distribution_drift rows report metric, distance, threshold, status, sample counts and flag. Configuration/report exports retain these settings and results. The API allows at most 50 selected features; CSV import remains bounded at 50 columns/10000 records.

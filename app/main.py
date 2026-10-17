@@ -5,7 +5,7 @@ from fastapi.staticfiles import StaticFiles
 from .core import Request, analyze
 from .guard import InputGuard
 
-app = FastAPI(title="MLOps Doctor", version="0.2.0")
+app = FastAPI(title="MLOps Doctor", version="0.3.0")
 app.add_middleware(InputGuard)
 STATIC = Path(__file__).with_name("static")
 app.mount("/assets", StaticFiles(directory=STATIC), name="assets")
@@ -52,6 +52,8 @@ class CSVDiagnosis(BaseModel):
     target: str
     features: list[str]
     drift_threshold: float = Field(default=1, gt=0, allow_inf_nan=False)
+    distribution_checks: bool = False
+    distribution_threshold: float = Field(default=0.25, ge=0, le=1, allow_inf_nan=False)
 
 
 @app.post("/csv/analyze")
@@ -67,6 +69,8 @@ def diagnose_csv(request: CSVDiagnosis):
             target=request.target,
             features=request.features,
             drift_threshold=request.drift_threshold,
+            distribution_checks=request.distribution_checks,
+            distribution_threshold=request.distribution_threshold,
         )
         return analyze(data)
     except ValueError as exc:

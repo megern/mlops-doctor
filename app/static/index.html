@@ -9,7 +9,7 @@
   </head>
   <body>
     <header>
-      <div class="eyebrow">MLOPS DOCTOR · 0.2</div>
+      <div class="eyebrow">MLOPS DOCTOR · 0.3</div>
       <h1>Find split leakage, schema errors and changing numeric features.</h1>
       <p>
         Import training and validation CSV files, define the expected schema and
@@ -71,6 +71,27 @@
             step="0.1"
             value="1"
           />
+          <fieldset>
+            <legend>Optional distribution checks</legend>
+            <label
+              ><input id="distribution-checks" type="checkbox" /> Compare
+              empirical numeric and categorical distributions</label
+            ><label for="distribution-threshold"
+              >Descriptive distance threshold (0–1)</label
+            ><input
+              id="distribution-threshold"
+              type="number"
+              min="0"
+              max="1"
+              step="0.05"
+              value="0.25"
+            />
+            <p class="hint">
+              Numeric: empirical CDF (KS) distance. Categorical: total
+              variation. Flags occur strictly above this threshold. These are
+              descriptive distances, not significance tests or p-values.
+            </p>
+          </fieldset>
           <fieldset>
             <legend>Input features</legend>
             <div id="features" class="checklist"></div>

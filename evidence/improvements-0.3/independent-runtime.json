@@ -1,0 +1,114 @@
+{
+  "application": "mlops-doctor",
+  "port": 18206,
+  "reviewer": "independent build_security_rag_arena_data",
+  "version": "0.3.0",
+  "kind": "Actual loopback HTTP requests to Docker preview provided by orchestrator",
+  "checks": [
+    {
+      "name": "health",
+      "status": 200,
+      "passed": true
+    },
+    {
+      "name": "mean-preserving distribution shift",
+      "path": "/analyze",
+      "status": 200,
+      "passed": true,
+      "response": {
+        "healthy": false,
+        "findings": [
+          {
+            "severity": "warning",
+            "code": "DISTRIBUTION_DRIFT",
+            "detail": "x: descriptive ks_cdf_distance exceeds configured distance threshold"
+          }
+        ],
+        "numeric_drift": [
+          {
+            "feature": "x",
+            "train_mean": 0,
+            "validation_mean": 0,
+            "train_std": 2.0,
+            "standardized_mean_shift": 0.0,
+            "constant_reference_changed": false
+          }
+        ],
+        "distribution_checks_enabled": true,
+        "distribution_drift": [
+          {
+            "feature": "x",
+            "metric": "ks_cdf_distance",
+            "distance": 0.5,
+            "threshold": 0.49,
+            "flagged": true,
+            "status": "computed",
+            "train_count": 4,
+            "validation_count": 4
+          }
+        ],
+        "limitations": "ID overlap and target inclusion detect only explicit leakage. Mean drift does not detect all distribution shifts. Optional CDF/total-variation distances are descriptive, have no p-values or significance claims, and do not establish model degradation."
+      }
+    },
+    {
+      "name": "reject out-of-range distribution threshold",
+      "path": "/analyze",
+      "status": 422,
+      "passed": true,
+      "response": {
+        "detail": [
+          {
+            "type": "less_than_equal",
+            "loc": [
+              "body",
+              "distribution_threshold"
+            ],
+            "msg": "Input should be less than or equal to 1",
+            "input": 1.1,
+            "ctx": {
+              "le": 1.0
+            }
+          }
+        ]
+      }
+    }
+  ],
+  "served_static_sha256": {
+    "/assets/app.js": {
+      "expected_source_sha256": "ac28911874042e4c15a3c7c2522dd12502bb552d1a5e8ff53bc9a623652780c0",
+      "actual_http_sha256": "ac28911874042e4c15a3c7c2522dd12502bb552d1a5e8ff53bc9a623652780c0",
+      "status": 200,
+      "matches": true
+    },
+    "/assets/common.js": {
+      "expected_source_sha256": "db81bb3e1ae49d7bf962ae0d2546ff86f628c7ca2a0c1cd2e0f406bf3a448a5e",
+      "actual_http_sha256": "db81bb3e1ae49d7bf962ae0d2546ff86f628c7ca2a0c1cd2e0f406bf3a448a5e",
+      "status": 200,
+      "matches": true
+    },
+    "/guide": {
+      "expected_source_sha256": "66a9dffc23965e987fa58e6d9c7d7477a1be35a8b10076434e1837515dd6caca",
+      "actual_http_sha256": "66a9dffc23965e987fa58e6d9c7d7477a1be35a8b10076434e1837515dd6caca",
+      "status": 200,
+      "matches": true
+    },
+    "/": {
+      "expected_source_sha256": "4ab68cf9db981573b7a81b4608f9e9bb3f7bd701511aa67414a4dcd1a94c84d6",
+      "actual_http_sha256": "4ab68cf9db981573b7a81b4608f9e9bb3f7bd701511aa67414a4dcd1a94c84d6",
+      "status": 200,
+      "matches": true
+    },
+    "/assets/styles.css": {
+      "expected_source_sha256": "14e48894070883d8545452d3e2b9bcefe3b8316e22048fc10b5b334e3cb137ad",
+      "actual_http_sha256": "14e48894070883d8545452d3e2b9bcefe3b8316e22048fc10b5b334e3cb137ad",
+      "status": 200,
+      "matches": true
+    }
+  },
+  "passed": true,
+  "limitations": [
+    "Served static/guide bytes matched reviewed source files; this alone does not prove Python image provenance.",
+    "HTTP assertions check deterministic synthetic examples, not real-world external validity.",
+    "This review used actual HTTP; visual browser acceptance and CI/release verification remain separate."
+  ]
+}
