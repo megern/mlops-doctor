@@ -1,0 +1,16 @@
+{
+  "train_csv": "id,x,y\na,-1,0\nb,1,0",
+  "validation_csv": "id,x,y\nc,-2,0\nd,2,0",
+  "schema": {
+    "id": "string",
+    "x": "number",
+    "y": "number"
+  },
+  "id_column": "id",
+  "target": "y",
+  "features": [
+    "x"
+  ],
+  "distribution_checks": true,
+  "distribution_threshold": 0.25
+}

@@ -1,4 +1,4 @@
-# MLOps Doctor · 0.2.0
+# MLOps Doctor · 0.3.0
 
 **Paired-split diagnostic workbench.** A practical validation tool for tabular training and validation manifests. It checks exact schema conformance, duplicate/overlapping IDs, accidental target inclusion and standardized numeric mean shifts.
 
@@ -57,16 +57,30 @@ python -m bandit -r app -ll
 python -m pip_audit --disable-pip --no-deps --require-hashes -r requirements.lock
 ```
 
-New 0.2 validation is recorded under `evidence/rebuild/`. Older evidence documents the earlier implementation and must not be treated as proof of this interface. Meaningful existing arithmetic/security tests are retained. CI checks Python and frontend tests, dependency vulnerabilities, secret patterns, container vulnerabilities and real HTTP smoke operation. Require the `quality` check in repository branch protection to prevent merging failing revisions; a workflow alone cannot enforce that policy.
+Historical 0.2 validation is retained under `evidence/rebuild/`; current 0.3 checks are recorded under `evidence/improvements-0.3/`. Older evidence documents the earlier implementation and must not be treated as proof of this interface. Meaningful existing arithmetic/security tests are retained. CI checks Python and frontend tests, dependency vulnerabilities, secret patterns, container vulnerabilities and real HTTP smoke operation. Require the `quality` check in repository branch protection to prevent merging failing revisions; a workflow alone cannot enforce that policy.
 
 ## Limits and troubleshooting
 
 The synthetic example has one overlapping ID and a large mean shift; it should raise SPLIT_LEAKAGE and MEAN_DRIFT. A quiet report does not prove an ML pipeline is healthy.
 
-For schema errors, compare column names, missing cells and the chosen types. CSV order does not affect matching, but extra/missing names do. Missing or nonscalar IDs prevent meaningful leakage detection and produce a validation error. Very small training variability may overflow the standardized ratio; rescale the inputs if instructed. Categorical distribution drift, fairness metrics, model metrics and trained-model inspection are not implemented.
+For schema errors, compare column names, missing cells and the chosen types. CSV order does not affect matching, but extra/missing names do. Missing or nonscalar IDs prevent meaningful leakage detection and produce a validation error. Very small training variability may overflow the standardized ratio; rescale the inputs if instructed. Optional numeric and categorical distribution checks are available when enabled; fairness metrics, model metrics and trained-model inspection are not implemented.
 
 HTTP JSON requests are bounded at 2 MiB; CSV parsing is bounded at 50 columns/10000 rows. Requests are local CPU work, no outside actions. Authentication and HTTPS are required when deploying beyond a trusted localhost environment. See the user guide for detailed method/resource limitations. This release provides no authentication, durable history or multi-user access management.
 
 ## License
 
 MIT. See LICENSE. Review transitive dependency licenses for your distribution. Contributors and review evidence are automated engineering work; no human reviewer is invented.
+
+## Optional distribution checks in 0.3
+
+Enable the explicit distribution-check checkbox to compare every selected feature's empirical distributions. It is off by default so existing API callers retain prior diagnostic behavior. Set a descriptive distance threshold from 0 to 1; the default is 0.25. A warning is raised only when distance is strictly greater than the threshold. Thus identical distributions are not flagged at zero, and a threshold of one suppresses distance flags.
+
+Numeric features use the maximum difference between empirical cumulative distribution functions (a two-sample KS distance), with ties counted together. For train [-1, 1] and validation [-2, 2], both means are zero but the distance is 0.5, revealing a shape change that a mean-only check misses. There are no p-values, significance levels, hypothesis-test conclusions or sample-size calibration.
+
+String and boolean features use total variation: half the sum of absolute differences in category proportions. Train [A,A,B,B] and validation [A,A,A,B] have distance 0.25. Categories use exact values and no smoothing. These descriptive metrics depend on sample representativeness and cannot prove model degradation, fairness issues, causal changes or distribution equivalence.
+
+A feature with missing or invalid cells is skipped for its distribution calculation and explicitly labeled “skipped_invalid_values”; existing schema diagnostics still identify errors. No imputation or silent record removal is performed. API fields are distribution_checks (default false) and distribution_threshold (0–1), supported by both /analyze and /csv/analyze. Result distribution_drift rows report metric, distance, threshold, status, sample counts and flag. Configuration/report exports retain these settings and results. The API allows at most 50 selected features; CSV import remains bounded at 50 columns/10000 records.
+
+Fresh 0.3 validation is saved in `evidence/improvements-0.3/`; older reports describe earlier versions and are not proof of these additions. This is automated developer work with separate release-manager and independent QA gates; no human review or enterprise certification is claimed.
+
+The new synthetic request `examples/synthetic-improvements-03.json` demonstrates this version. POST it to `/csv/analyze`; all data are synthetic.

@@ -18,7 +18,7 @@ import {
   bindFile,
   readFile,
   schemaEditor,
-  setOptions
+  setOptions,
 } from "./common.js";
 let columns = [],
   getSchema = () => ({}),
@@ -31,8 +31,10 @@ function dirty() {
   $("technical").textContent = "Inputs changed. Run again.";
   invalidate();
 }
-for (const id of ["train", "validation", "threshold"]) $(id).oninput = dirty;
+for (const id of ["train", "validation", "threshold", "distribution-threshold"])
+  $(id).oninput = dirty;
 $("schema").onchange = dirty;
+$("distribution-checks").onchange = dirty;
 function features(selected) {
   replace($("features"));
   for (const column of columns) {
@@ -51,8 +53,8 @@ function features(selected) {
         column +
           (column === $("target").value
             ? " · target (including it will flag leakage)"
-            : "")
-      )
+            : ""),
+      ),
     );
     $("features").append(label);
   }
@@ -68,7 +70,7 @@ async function preview() {
   const generation = getRevision();
   const [train, validation] = await Promise.all([
     api("/csv/preview", { csv_text: $("train").value }),
-    api("/csv/preview", { csv_text: $("validation").value })
+    api("/csv/preview", { csv_text: $("validation").value }),
   ]);
   assertCurrent(generation);
   columns = train.columns;
@@ -77,23 +79,23 @@ async function preview() {
     el("h3", "Training · " + train.row_count + " rows"),
     previewRows(train.columns, train.preview),
     el("h3", "Validation · " + validation.row_count + " rows"),
-    previewRows(validation.columns, validation.preview)
+    previewRows(validation.columns, validation.preview),
   );
   getSchema = schemaEditor($("schema"), columns, train.preview);
   setOptions(
     $("id-column"),
     columns,
-    columns.find((c) => /^(id|record_id)$/i.test(c)) || columns[0]
+    columns.find((c) => /^(id|record_id)$/i.test(c)) || columns[0],
   );
   setOptions(
     $("target"),
     columns,
-    columns.find((c) => /^(y|target|label)$/i.test(c)) || columns.at(-1)
+    columns.find((c) => /^(y|target|label)$/i.test(c)) || columns.at(-1),
   );
   features();
   if (train.columns.join("|") !== validation.columns.join("|"))
     status(
-      "Column sets or order differ. Extra/missing fields are diagnosed against the chosen training schema; CSV column order itself is not an error."
+      "Column sets or order differ. Extra/missing fields are diagnosed against the chosen training schema; CSV column order itself is not an error.",
     );
   return { train, validation, generation };
 }
@@ -103,7 +105,7 @@ $("preview").onclick = async () => {
     const prepared = await preview();
     assertCurrent(prepared.generation);
     status(
-      "Files parsed. Review types, ID, target and selected features before diagnosis."
+      "Files parsed. Review types, ID, target and selected features before diagnosis.",
     );
   } catch (e) {
     if (isStale(e)) return;
@@ -112,7 +114,7 @@ $("preview").onclick = async () => {
 };
 for (const [field, file] of [
   ["train", "train-file"],
-  ["validation", "validation-file"]
+  ["validation", "validation-file"],
 ])
   bindFile(
     file,
@@ -121,7 +123,7 @@ for (const [field, file] of [
       dirty();
       status("CSV loaded. Import the other split, then preview both files.");
     },
-    dirty
+    dirty,
   );
 function config() {
   return {
@@ -131,9 +133,11 @@ function config() {
     id_column: $("id-column").value,
     target: $("target").value,
     features: [...$("features").querySelectorAll("input:checked")].map(
-      (n) => n.value
+      (n) => n.value,
     ),
-    drift_threshold: Number($("threshold").value)
+    drift_threshold: Number($("threshold").value),
+    distribution_checks: $("distribution-checks").checked,
+    distribution_threshold: Number($("distribution-threshold").value),
   };
 }
 $("example").onclick = async () => {
@@ -142,13 +146,15 @@ $("example").onclick = async () => {
     $("train").value = "id,x,y\na,1,0\nb,3,1";
     $("validation").value = "id,x,y\na,8,1\nc,10,0";
     $("threshold").value = 1;
+    $("distribution-checks").checked = false;
+    $("distribution-threshold").value = 0.25;
     const prepared = await preview();
     assertCurrent(prepared.generation);
     synthetic = true;
     $("data-origin").textContent =
       "Synthetic example · no real training records";
     status(
-      "Synthetic example includes one overlapping ID and a large numeric mean shift."
+      "Synthetic example includes one overlapping ID and a large numeric mean shift.",
     );
   } catch (e) {
     if (isStale(e)) return;
@@ -183,8 +189,10 @@ $("config-file").onchange = async () => {
     setOptions($("target"), columns, data.target);
     features(data.features);
     $("threshold").value = data.drift_threshold ?? 1;
+    $("distribution-checks").checked = data.distribution_checks === true;
+    $("distribution-threshold").value = data.distribution_threshold ?? 0.25;
     status(
-      "Diagnosis configuration imported. Review the schema before running."
+      "Diagnosis configuration imported. Review the schema before running.",
     );
   } catch (e) {
     if (isStale(e)) return;
@@ -193,6 +201,8 @@ $("config-file").onchange = async () => {
   }
 };
 const actions = {
+  DISTRIBUTION_DRIFT:
+    "Inspect the feature distribution and collection process. Distances can flag equal-mean shape changes; they provide no p-value or proof of performance degradation.",
   TARGET_LEAKAGE:
     "Remove the target from input features; review upstream feature construction for derived-label leakage.",
   SPLIT_LEAKAGE:
@@ -202,7 +212,7 @@ const actions = {
   SCHEMA_MISMATCH:
     "Correct missing/extra columns or invalid cell types. This tool does not impute missing values.",
   MEAN_DRIFT:
-    "Investigate data collection changes and plot feature distributions. A mean shift alone does not prove performance degradation."
+    "Investigate data collection changes and plot feature distributions. A mean shift alone does not prove performance degradation.",
 };
 $("run").onclick = () =>
   action(async () => {
@@ -210,7 +220,7 @@ $("run").onclick = () =>
     const input = config();
     if (!columns.length)
       throw new Error(
-        "Preview both CSV files and define the expected schema first."
+        "Preview both CSV files and define the expected schema first.",
       );
     const generation = getRevision(),
       result = await api("/csv/analyze", input);
@@ -218,29 +228,29 @@ $("run").onclick = () =>
     report = newReport("MLOps Doctor", input, result, synthetic);
     const counts = result.findings.reduce(
       (a, f) => ((a[f.severity] = (a[f.severity] || 0) + 1), a),
-      {}
+      {},
     );
     replace(
       $("results"),
       metrics([
         ["Findings", result.findings.length],
         ["Critical", counts.critical || 0],
-        ["Schema errors", counts.error || 0]
+        ["Schema errors", counts.error || 0],
       ]),
       el(
         "p",
         result.healthy
           ? "No configured diagnostic flags. This does not prove absence of leakage or drift."
           : "Review the flagged checks before trusting this evaluation.",
-        "notice"
-      )
+        "notice",
+      ),
     );
     if (result.findings.length) {
       $("results").append(
         table(
           ["Severity", "Check", "Detail"],
-          result.findings.map((f) => [f.severity, f.code, f.detail])
-        )
+          result.findings.map((f) => [f.severity, f.code, f.detail]),
+        ),
       );
       for (const code of new Set(result.findings.map((f) => f.code))) {
         const card = el("div", "", "step");
@@ -248,8 +258,9 @@ $("run").onclick = () =>
           el("strong", code),
           el(
             "p",
-            actions[code] || "Review the diagnostic and verify the source data."
-          )
+            actions[code] ||
+              "Review the diagnostic and verify the source data.",
+          ),
         );
         $("results").append(card);
       }
@@ -257,15 +268,15 @@ $("run").onclick = () =>
     if (result.numeric_drift.length) {
       $("results").append(el("h3", "Standardized numeric mean shifts"));
       const finite = result.numeric_drift.filter(
-        (d) => d.standardized_mean_shift !== null
+        (d) => d.standardized_mean_shift !== null,
       );
       $("results").append(
         bars(
           finite.map((d) => [d.feature, d.standardized_mean_shift]),
           Math.max(
             input.drift_threshold,
-            ...finite.map((d) => d.standardized_mean_shift)
-          )
+            ...finite.map((d) => d.standardized_mean_shift),
+          ),
         ),
         table(
           ["Feature", "Train mean", "Validation mean", "Train σ", "Shift / σ"],
@@ -278,18 +289,49 @@ $("run").onclick = () =>
               ? d.constant_reference_changed
                 ? "Constant baseline changed"
                 : "Constant baseline unchanged"
-              : d.standardized_mean_shift
-          ])
-        )
+              : d.standardized_mean_shift,
+          ]),
+        ),
       );
     } else
       $("results").append(
         el(
           "p",
           "No valid numeric feature was available for mean-drift calculation. Review the selected features and schema.",
-          "hint"
-        )
+          "hint",
+        ),
       );
+    if (result.distribution_checks_enabled) {
+      const distributions = result.distribution_drift;
+      $("results").append(
+        el("h3", "Optional descriptive distribution distances"),
+        bars(
+          distributions
+            .filter((d) => d.distance !== null)
+            .map((d) => [d.feature, d.distance]),
+          1,
+        ),
+        table(
+          ["Feature", "Metric", "Distance (0–1)", "Threshold", "Status"],
+          distributions.map((d) => [
+            d.feature,
+            d.metric,
+            d.distance,
+            d.threshold,
+            d.status === "computed"
+              ? d.flagged
+                ? "Flagged"
+                : "Within threshold"
+              : "Skipped: invalid / missing values",
+          ]),
+        ),
+        el(
+          "p",
+          "Flags use distance > threshold. These descriptive distances are not p-values, significance tests or a model-quality assessment.",
+          "notice",
+        ),
+      );
+    }
     $("results").append(el("p", result.limitations, "notice"));
     $("technical").textContent = JSON.stringify(result, null, 2);
     $("export-report").disabled = false;
