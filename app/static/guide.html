@@ -3,12 +3,12 @@
   <meta charset="utf-8" /><meta
     name="viewport"
     content="width=device-width,initial-scale=1"
-  /><title>User guide 0.3</title
+  /><title>User guide 0.4</title
   ><link rel="stylesheet" href="/assets/styles.css" />
   <main>
     <a href="/">← Back to application</a>
     <article class="panel">
-      <h1>MLOps Doctor — User guide · 0.3</h1>
+      <h1>MLOps Doctor — User guide</h1>
       <h2>Intended use</h2>
       <p>
         A practical validation tool for tabular training and validation
@@ -66,8 +66,8 @@
         produce a validation error. Very small training variability may overflow
         the standardized ratio; rescale the inputs if instructed. Optional
         numeric and categorical distribution checks are available when enabled;
-        fairness metrics, model metrics and trained-model inspection are not
-        implemented.
+        prediction metrics are available in the separate evaluation panel.
+        Fairness certification and trained-model inspection are not implemented.
       </p>
       <h2>Resource and privacy limits</h2>
       <p>
@@ -149,7 +149,65 @@
         /csv/analyze. Result distribution_drift rows report metric, distance,
         threshold, status, sample counts and flag. Configuration/report exports
         retain these settings and results. The API allows at most 50 selected
-        features; CSV import remains bounded at 50 columns/10000 records.<br />
+        features; CSV import remains bounded at 50 columns/10000 records.
+      </p>
+      <h2>Prediction evaluation and slices in 0.4</h2>
+      <p>
+        The Prediction evaluation panel is separate from training/validation
+        pipeline diagnostics. Upload or paste a held-out predictions CSV,
+        preview it, select classification or regression, and map distinct
+        actual, predicted and optional group columns. Set minimum rows per group
+        (1–10,000, default 5). Load synthetic prediction evaluation supplies six
+        fictional classification rows; expected accuracy is 4/6, with two groups
+        of three. It never represents real people or a fairness study.
+      </p>
+      <p>
+        Classification shows accuracy, a confusion matrix (rows actual, columns
+        predicted), class support, precision, recall and F1, plus macro and
+        support-weighted averages. The label universe is the union of observed
+        actual and predicted labels across the full input, reused for every
+        slice. Thus a globally observed class absent in a slice still
+        contributes zero to that slice&#x27;s macro average. Precision = TP /
+        predicted class count; recall = TP / actual class count; F1 is their
+        harmonic mean. A zero denominator yields 0. Weighted averages use actual
+        support; macro gives every label equal weight. At most 50 distinct
+        labels are permitted. CSV classification labels are exact case-sensitive
+        text after trimming; direct JSON supports distinct boolean, numeric and
+        text labels, with numeric 1 and 1.0 equivalent.
+      </p>
+      <p>
+        Regression shows MAE = mean absolute error, RMSE = square root of mean
+        squared error and R² = 1−SSE/SST about the actual mean. R² may be
+        negative; it is null with a reason for constant actual values or a ratio
+        outside finite floating-point range. Scaled square calculations protect
+        very small error magnitudes from avoidable underflow. Regression
+        requires finite numbers with magnitude at most 1e100; booleans, missing
+        values and numeric-looking text in direct JSON are rejected. CSV
+        mappings explicitly convert numeric strings for regression.
+      </p>
+      <p>
+        The overall result uses every row. Group names must be nonblank text of
+        at most 200 characters, with at most 100 distinct groups.
+        Below-minimum-support groups report their support and status but no
+        metrics. Supported slices report the same metric definitions as overall.
+        There is no confidence interval, p-value, significance test, fairness
+        certification or causal attribution. Labels, slice definitions, missing
+        groups, selection bias and representativeness require domain review. No
+        rows are silently dropped or imputed.
+      </p>
+      <p>
+        POST /evaluate accepts task, actual, predicted, optional groups and
+        minimum_support. POST /csv/evaluate accepts csv_text, task,
+        actual_column, predicted_column, optional group_column and
+        minimum_support. Arrays and CSV are capped at 10,000 rows and the shared
+        2 MiB request bound applies. Prediction report and configuration exports
+        include these inputs and outputs; keep them private if labels/group
+        names are sensitive. Existing /analyze and /csv/analyze pipeline
+        behavior and distribution-check defaults remain unchanged. See
+        examples/synthetic-predictions.json and
+        examples/synthetic-predictions.csv. If imports fail, map distinct
+        existing columns and inspect blank cells; classification requires
+        nonempty labels, regression requires numbers.<br />
       </p>
     </article>
   </main>

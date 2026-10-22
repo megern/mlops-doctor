@@ -1,0 +1,28 @@
+{
+  "task": "classification",
+  "actual": [
+    "yes",
+    "yes",
+    "no",
+    "no",
+    "yes",
+    "no"
+  ],
+  "predicted": [
+    "yes",
+    "no",
+    "no",
+    "yes",
+    "yes",
+    "no"
+  ],
+  "groups": [
+    "A",
+    "A",
+    "A",
+    "B",
+    "B",
+    "B"
+  ],
+  "minimum_support": 2
+}

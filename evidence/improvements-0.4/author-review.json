@@ -1,0 +1,42 @@
+{
+  "python_tests": 42,
+  "frontend_tests": 14,
+  "routes": [
+    "POST /evaluate",
+    "POST /csv/evaluate"
+  ],
+  "limits": [
+    "10000 prediction rows,50 classification labels,100 groups; minimumsupport1\u201310000",
+    "Global label universe in all slice macro averages; zero denominator precision/recall/F1 yields0",
+    "Regression finite bounded numbers; scaled RMSE; R2 null with reason for constant targets/unrepresentable ratios",
+    "Descriptive evaluation only, no pvalues, fairness or causal claims"
+  ],
+  "example": "examples/synthetic-predictions.json",
+  "application": "mlops-doctor",
+  "version": "0.4.0",
+  "author": "build_enterprise automated application developer",
+  "independent_review": false,
+  "status": "TESTED",
+  "checked_at_utc": "2026-10-22T14:10:53.924796+00:00",
+  "scope": "Developer unit/API integration and frontend DOM-fixture transport/state tests before root shared access integration. Not browser rendering, Docker acceptance, hosted CI or a publication claim. Root integrates and tests shared access after this checkpoint.",
+  "test_commands": [
+    "work/.venv/bin/python -m pytest -q (repository cwd)",
+    "node --test tests/ui.test.mjs",
+    "work/.venv/bin/python -m bandit -r app -ll"
+  ],
+  "logs": [
+    "pytest.txt",
+    "frontend.txt",
+    "bandit.txt"
+  ],
+  "bandit": "PASS; configured static scan0 findings",
+  "feature_source_sha256": {
+    "app/evaluation.py": "1fb57ac40b3a303f4d0bfcd333c210463f00727e282b6cd9ffa9a89d7a716dfe",
+    "app/static/app.js": "271ef69de32897d26f47008428bb4a057cb6fd7b2d92ef025bea2c259870e64c",
+    "tests/test_improvements_04.py": "b5002680224a6477f79aefbc3aee31c4dadec3b96e68f990860e04bc53f11617",
+    "tests/ui.test.mjs": "61f4e7288c9e060080ffac2a076e960c4a027256a3efabd02f6bd249f0fdef05"
+  },
+  "synthetic_examples_only": true,
+  "shared_constraints": "No new dependencies, dynamic execution, external actions or paid services. Existing streamed2MiB guard, CSV empty records and asynchronous revision safeguards retained.",
+  "mutations": "No Git commits/pushes, Docker changes or root-owned access files edited."
+}

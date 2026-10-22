@@ -19,6 +19,8 @@ import {
   readFile,
   schemaEditor,
   setOptions,
+  selectField,
+  download,
 } from "./common.js";
 let columns = [],
   getSchema = () => ({}),
@@ -338,3 +340,220 @@ $("run").onclick = () =>
     $("print").disabled = false;
   });
 setupExports("mlops-doctor", () => report, config);
+
+const evaluationPanel = el("section", "", "panel");
+evaluationPanel.id = "prediction-evaluation";
+evaluationPanel.append(
+  el("h2", "Prediction evaluation and supported slices"),
+  el(
+    "p",
+    "Import held-out actual and predicted values. Descriptive metrics are not a fairness or causal assessment. Classification CSV labels are text; regression columns must be numeric.",
+  ),
+);
+for (const [id, label, type] of [
+  ["eval-file", "Prediction CSV file", "file"],
+  ["eval-csv", "Or paste predictions CSV", "textarea"],
+  ["eval-minimum", "Minimum rows per group", "number"],
+]) {
+  const l = el("label", label),
+    c = el(type === "textarea" ? "textarea" : "input");
+  c.id = id;
+  l.htmlFor = id;
+  if (type !== "textarea") c.type = type;
+  if (type === "file") c.accept = ".csv,text/csv";
+  if (type === "textarea") c.maxLength = 2097152;
+  if (type === "number") {
+    c.min = 1;
+    c.max = 10000;
+    c.value = 5;
+  }
+  evaluationPanel.append(l, c);
+}
+for (const [id, label, values] of [
+  ["eval-task", "Prediction task", ["classification", "regression"]],
+  ["eval-actual", "Actual / true column", []],
+  ["eval-predicted", "Prediction column", []],
+  ["eval-group", "Optional group column", [""]],
+]) {
+  const f = selectField(id, label, values);
+  evaluationPanel.append(f.box);
+}
+const evalPreview = el("button", "Preview and map prediction CSV"),
+  evalExample = el("button", "Load synthetic prediction evaluation"),
+  evalRun = el("button", "Evaluate predictions"),
+  evalPreviewTable = el("div");
+evalPreview.id = "eval-preview";
+evalExample.id = "eval-example";
+evalRun.id = "eval-run";
+evaluationPanel.append(evalPreview, evalExample, evalRun, evalPreviewTable);
+document.querySelector(".input-panel").append(evaluationPanel);
+let evaluationSynthetic = false;
+function evaluationDirty() {
+  evaluationSynthetic = false;
+  dirty();
+}
+evaluationPanel.addEventListener("input", (event) => {
+  if (event?.target?.type !== "file") evaluationDirty();
+});
+evaluationPanel.addEventListener("change", (event) => {
+  if (event?.target?.type !== "file") evaluationDirty();
+});
+async function previewEvaluation() {
+  invalidate();
+  const generation = getRevision(),
+    r = await api("/csv/preview", { csv_text: $("eval-csv").value });
+  assertCurrent(generation);
+  replace(evalPreviewTable, previewRows(r.columns, r.preview));
+  setOptions(
+    $("eval-actual"),
+    r.columns,
+    r.columns.find((c) => /actual|true/i.test(c)) || r.columns[0],
+  );
+  setOptions(
+    $("eval-predicted"),
+    r.columns,
+    r.columns.find((c) => /pred/i.test(c)) || r.columns[1],
+  );
+  setOptions(
+    $("eval-group"),
+    ["", ...r.columns],
+    r.columns.find((c) => /group|slice/i.test(c)) || "",
+  );
+  return { generation };
+}
+evalPreview.onclick = async () => {
+  try {
+    evaluationDirty();
+    await previewEvaluation();
+    status(
+      "Prediction CSV parsed. Choose task, mappings and minimum group support.",
+    );
+  } catch (e) {
+    if (!isStale(e)) status(e.message, true);
+  }
+};
+bindFile(
+  "eval-file",
+  "eval-csv",
+  async () => {
+    evaluationDirty();
+    await previewEvaluation();
+  },
+  evaluationDirty,
+);
+evalExample.onclick = async () => {
+  try {
+    evaluationDirty();
+    $("eval-csv").value =
+      "actual,predicted,group\nyes,yes,A\nyes,no,A\nno,no,A\nno,yes,B\nyes,yes,B\nno,no,B";
+    $("eval-task").value = "classification";
+    $("eval-minimum").value = 2;
+    const r = await previewEvaluation();
+    assertCurrent(r.generation);
+    evaluationSynthetic = true;
+    $("data-origin").textContent =
+      "Synthetic prediction evaluation · no real people";
+    status(
+      "Synthetic classification loaded: accuracy 4/6, two supported groups of three rows.",
+    );
+  } catch (e) {
+    if (!isStale(e)) status(e.message, true);
+  }
+};
+evalRun.onclick = () =>
+  action(async () => {
+    report = null;
+    const input = {
+        csv_text: $("eval-csv").value,
+        task: $("eval-task").value,
+        actual_column: $("eval-actual").value,
+        predicted_column: $("eval-predicted").value,
+        group_column: $("eval-group").value || null,
+        minimum_support: Number($("eval-minimum").value),
+      },
+      generation = getRevision(),
+      result = await api("/csv/evaluate", input);
+    assertCurrent(generation);
+    report = newReport(
+      "MLOps Doctor prediction evaluation",
+      input,
+      result,
+      evaluationSynthetic,
+    );
+    const summary = result.overall;
+    replace(
+      $("results"),
+      el("h3", "Prediction metrics"),
+      metrics(
+        result.task === "classification"
+          ? [
+              ["Rows", summary.support],
+              ["Accuracy", summary.accuracy],
+              ["Macro F1", summary.macro.f1],
+              ["Weighted F1", summary.weighted.f1],
+            ]
+          : [
+              ["Rows", summary.support],
+              ["MAE", summary.mae],
+              ["RMSE", summary.rmse],
+              ["R²", summary.r2 ?? "Undefined: constant actual"],
+            ],
+      ),
+      el("p", result.method, "notice"),
+    );
+    if (result.task === "classification") {
+      $("results").append(
+        el("h3", "Confusion matrix · rows actual, columns predicted"),
+        table(
+          [
+            "Actual / predicted",
+            ...summary.labels.map((l) => `${l.type}: ${l.value}`),
+          ],
+          summary.confusion_matrix.map((row, i) => [
+            `${summary.labels[i].type}: ${summary.labels[i].value}`,
+            ...row,
+          ]),
+        ),
+        table(
+          ["Class", "Support", "Precision", "Recall", "F1"],
+          summary.per_class.map((c) => [
+            `${c.label_type}: ${c.label}`,
+            c.support,
+            c.precision,
+            c.recall,
+            c.f1,
+          ]),
+        ),
+      );
+    }
+    $("results").append(
+      el("h3", "Group summaries"),
+      table(
+        result.task === "classification"
+          ? ["Group", "Rows", "Status", "Accuracy", "Macro F1", "Weighted F1"]
+          : ["Group", "Rows", "Status", "MAE", "RMSE", "R²"],
+        result.slices.map((g) =>
+          [
+            g.group,
+            g.support,
+            g.status,
+            ...(result.task === "classification"
+              ? [
+                  g.metrics?.accuracy,
+                  g.metrics?.macro.f1,
+                  g.metrics?.weighted.f1,
+                ]
+              : [g.metrics?.mae, g.metrics?.rmse, g.metrics?.r2]),
+          ].map((v) => v ?? "Not evaluated / undefined"),
+        ),
+      ),
+    );
+    const save = el("button", "Export prediction report"),
+      configSave = el("button", "Export prediction configuration");
+    save.onclick = () => download("prediction-report.json", report);
+    configSave.onclick = () => download("prediction-config.json", input);
+    $("results").append(save, configSave);
+    $("technical").textContent = JSON.stringify(result, null, 2);
+    $("export-report").disabled = false;
+    $("print").disabled = false;
+  });

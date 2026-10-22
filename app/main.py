@@ -1,3 +1,4 @@
+from .access import AccessControl
 from pathlib import Path
 from fastapi import FastAPI, HTTPException
 from fastapi.responses import FileResponse
@@ -5,7 +6,7 @@ from fastapi.staticfiles import StaticFiles
 from .core import Request, analyze
 from .guard import InputGuard
 
-app = FastAPI(title="MLOps Doctor", version="0.3.0")
+app = FastAPI(title="MLOps Doctor", version="0.4.0")
 app.add_middleware(InputGuard)
 STATIC = Path(__file__).with_name("static")
 app.mount("/assets", StaticFiles(directory=STATIC), name="assets")
@@ -80,3 +81,25 @@ def diagnose_csv(request: CSVDiagnosis):
 @app.get("/guide")
 def user_guide():
     return FileResponse(STATIC / "guide.html")
+
+
+from .evaluation import Evaluation, CSVEvaluation, evaluate, evaluate_csv
+
+
+@app.post("/evaluate")
+def prediction_evaluation(request: Evaluation):
+    try:
+        return evaluate(request)
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+
+
+@app.post("/csv/evaluate")
+def prediction_evaluation_csv(request: CSVEvaluation):
+    try:
+        return evaluate_csv(request)
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+
+
+app.add_middleware(AccessControl)
