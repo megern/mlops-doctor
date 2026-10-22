@@ -164,6 +164,9 @@ function applicationDOM() {
       this.children = [];
       this.append(...items);
     }
+    before(...items) {
+      this.siblings = items;
+    }
     after(...items) {
       this.siblings = items;
     }
@@ -173,7 +176,14 @@ function applicationDOM() {
     }
     querySelectorAll(selector) {
       return this.children.flatMap((n) => [
-        ...(n.tagName === "input" && (selector !== "input:checked" || n.checked)
+        ...((
+          selector === "select"
+            ? n.tagName === "select"
+            : selector === "label"
+              ? n.tagName === "label"
+              : n.tagName === "input" &&
+                (selector !== "input:checked" || n.checked)
+        )
           ? [n]
           : []),
         ...n.querySelectorAll(selector),
@@ -191,6 +201,7 @@ function applicationDOM() {
     getElementById: get,
     createElement: (tag) => new Element(tag),
     querySelectorAll: () => [...nodes.values()],
+    querySelector: () => get("input-panel"),
   };
   return { nodes, get };
 }
@@ -361,4 +372,76 @@ test("real distribution opt-in controls persist in configuration and invalidate 
     URL.createObjectURL = original;
     URL.revokeObjectURL = revoke;
   }
+});
+
+test("actual prediction CSV mapper submits selected task, mappings and support", async () => {
+  const fixture = await realApplication();
+  global.fetch = async () => ({
+    ok: true,
+    json: async () => ({
+      columns: ["actual", "predicted", "group"],
+      row_count: 6,
+      preview: [{ actual: "yes", predicted: "yes", group: "A" }],
+    }),
+  });
+  await fixture.get("eval-example").onclick();
+  let submitted;
+  global.fetch = async (path, options) => {
+    submitted = { path, input: JSON.parse(options.body) };
+    return {
+      ok: true,
+      json: async () => ({
+        task: "regression",
+        overall: { support: 6, mae: 1, rmse: 1, r2: -1 },
+        slices: [],
+        method: "Synthetic frontend transport mock",
+      }),
+    };
+  };
+  fixture.get("eval-task").value = "regression";
+  fixture.get("eval-task").listeners?.change?.();
+  await fixture.get("eval-run").onclick();
+  assert.equal(submitted.path, "/csv/evaluate");
+  assert.equal(submitted.input.actual_column, "actual");
+  assert.equal(submitted.input.predicted_column, "predicted");
+  assert.equal(submitted.input.group_column, "group");
+  assert.equal(submitted.input.minimum_support, 2);
+  assert.equal(submitted.input.task, "regression");
+});
+test("delayed prediction example cannot relabel edited data or replace mapping", async () => {
+  const fixture = await realApplication();
+  let release;
+  global.fetch = () => new Promise((r) => (release = r));
+  const pending = fixture.get("eval-example").onclick();
+  fixture.get("eval-csv").value = "user,pred\na,b";
+  fixture.get("prediction-evaluation").listeners.input();
+  fixture.get("eval-actual").value = "user";
+  release(previewResponse());
+  await pending;
+  assert.equal(fixture.get("eval-actual").value, "user");
+  assert.doesNotMatch(fixture.get("data-origin").textContent, /Synthetic/);
+});
+
+test("bubbling file change does not invalidate its own prediction CSV import", async () => {
+  const fixture = await realApplication();
+  let release;
+  fixture.get("eval-file").files = [
+    { size: 50, text: () => new Promise((r) => (release = r)) },
+  ];
+  global.fetch = async () => ({
+    ok: true,
+    json: async () => ({
+      columns: ["true", "prediction"],
+      row_count: 1,
+      preview: [{ true: "a", prediction: "a" }],
+    }),
+  });
+  const pending = fixture.get("eval-file").onchange();
+  fixture
+    .get("prediction-evaluation")
+    .listeners.change({ target: fixture.get("eval-file") });
+  release("true,prediction\na,a");
+  await pending;
+  assert.equal(fixture.get("eval-csv").value, "true,prediction\na,a");
+  assert.equal(fixture.get("eval-actual").value, "true");
 });

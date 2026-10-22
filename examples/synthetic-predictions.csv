@@ -1,0 +1,7 @@
+actual,predicted,group
+yes,yes,A
+yes,no,A
+no,no,A
+no,yes,B
+yes,yes,B
+no,no,B
